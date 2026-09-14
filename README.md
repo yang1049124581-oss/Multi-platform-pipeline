@@ -1,4 +1,5 @@
 # Multi-Platform Content Distribution Pipeline
+因为工作需要，每次都需要手动发文并汇总链接上传，非常麻烦，所以自己vibe coding搞了一些自动化，先上传一版，后续进行验证看看能不能迁移
 
 An end-to-end automation pipeline covering the full content workflow — **topic selection → writing → review → typesetting → distribution → link collection** — across multiple publishing platforms. Write once, distribute everywhere.
 
