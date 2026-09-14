@@ -1,9 +1,9 @@
 ---
 name: link-get
-description: 五平台已发布文章链接自动汇总（公众号/头条号/百家号/知乎/CSDN）
+description: 多平台已发布文章链接自动汇总（公众号/头条号/百家号/知乎/CSDN）
 ---
 
-# link-get —— 五平台文章链接自动汇总
+# link-get —— 多平台文章链接自动汇总
 
 > ⚠️ **强制路由**：用户说"整理链接/汇总链接/总结链接/今天的链接"时，必须先 `read_skill("link-get")` 加载本指令再执行，不得自行猜测跳过。
 
@@ -145,8 +145,8 @@ CSDN	https://blog.csdn.net/{authorId}/article/details/xxx
 ## 项目文件
 
 ```
-五平台运营/
-├── scripts/cdp_collect.py       # 主力采集（CDP五平台，含多端口扫描+模糊匹配+自动重试）
+多平台运营/
+├── scripts/cdp_collect.py       # 主力采集（CDP多平台，含多端口扫描+模糊匹配+自动重试）
 ├── start_chrome_debug.bat       # 启动Chrome调试端口（备用，不杀进程）
 ├── start_edge_debug.bat         # 启动Edge调试端口（备用，不杀进程）
 ├── outputs/links-YYYY-MM-DD.md  # 采集结果

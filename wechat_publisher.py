@@ -258,16 +258,33 @@ def cmd_open():
         print(f"  错误：{e}")
 
 
-# ---------- compose 自动合成（正文三图 + CDA底部） ----------
+# ============================================================
+# 推广位配置（按需替换为你自己的关键词与文案）
+# ============================================================
+PROMO_KEYWORD = os.environ.get("PROMO_KEYWORD", "CDA")
+PROMO_FOOTER_TEXT = os.environ.get(
+    "PROMO_FOOTER_TEXT",
+    "扫码了解CDA数据分析师认证，这里有数据分析干货知识和模拟题，对技能提升非常有帮助",
+)
+PROMO_FOOTER_IMAGE = os.environ.get("PROMO_FOOTER_IMAGE", "@8.jpg")
+RANDOM_IMG_TAG = os.environ.get("RANDOM_IMG_TAG", "@cda-random")
+RANDOM_IMG_POOL = ["4.png", "6.png", "7.jpg"]  # 文末随机配图候选池
+# 需要从正文中清除的旧推广位样式（防重复追加；按需替换）
+PROMO_STRIP_PATTERNS = [
+    r'扫码了解CDA数据分析师认证[^，]*，[^\n]*',
+    r'【扫码"CDA认证"小程序】[^\n]*',
+]
+
+# ---------- compose 自动合成（正文配图 + 推广底部） ----------
 
 import re as _re
 
 
-def _strip_cda_bottom(content):
-    """清除正文中已有的 CDA 底部内容（仅清除文字和二维码图），避免重复"""
-    content = _re.sub(r'^\s*@8\.jpg\s*$', '', content, flags=_re.MULTILINE)
-    content = _re.sub(r'扫码了解CDA数据分析师认证[^，]*，[^\n]*', '', content)
-    content = _re.sub(r'【扫码"CDA认证"小程序】[^\n]*', '', content)
+def _strip_promo_footer(content):
+    """清除正文中已有的推广底部内容（仅清除文字和二维码图），避免重复"""
+    content = _re.sub(r'^\s*' + _re.escape(PROMO_FOOTER_IMAGE) + r'\s*$', '', content, flags=_re.MULTILINE)
+    for pattern in PROMO_STRIP_PATTERNS:
+        content = _re.sub(pattern, '', content)
     content = _re.sub(r'\n{3,}', '\n\n', content)
     return content.strip() + '\n'
 
@@ -304,27 +321,24 @@ def _insert_body_images(content):
     return '\n'.join(result)
 
 
-def _cda_bottom_block():
-    """生成 CDA 底部区域：引导文字 → 8.jpg（二维码）"""
+def _promo_footer_block():
+    """生成推广底部区域：引导文字 → 二维码图（配置区可替换）"""
     return (
-        '\n'
-        '扫码了解CDA数据分析师认证，这里有数据分析干货知识和模拟题，对技能提升非常有帮助\n'
-        '\n'
-        '@8.jpg\n'
+        '\n' + PROMO_FOOTER_TEXT + '\n\n' + PROMO_FOOTER_IMAGE + '\n'
     )
 
 
 def cmd_compose():
     """
-    自动合成文章：插入正文三图（可选加 CDA 底部区域）
+    自动合成文章：插入正文配图（可选追加推广底部区域）
     用法：
-      python wechat_publisher.py compose <input.md> [output.md]           # 默认带 CDA 尾缀
-      python wechat_publisher.py compose --no-footer <input.md> [output.md]  # 无 CDA 尾缀
+      python wechat_publisher.py compose <input.md> [output.md]           # 默认带推广尾缀
+      python wechat_publisher.py compose --no-footer <input.md> [output.md]  # 无推广尾缀
 
     处理流程：
-      1. 清除已有 CDA 底部（防重复）
+      1. 清除已有推广底部（防重复）
       2. 在第 1/3/5 个 h2 章节后插入 @1.png / @2.png / @3..png
-      3. 追加 CDA 底部区域（除非 --no-footer）
+      3. 追加推广底部区域（除非 --no-footer）
       4. 输出合成后的 Markdown
     """
     if len(sys.argv) < 3:
@@ -350,13 +364,13 @@ def cmd_compose():
 
     print(f"  [合成] 读取：{in_path.name} → 输出：{out_path.name}")
 
-    # 1. 去除已有的 CDA 底部
-    content = _strip_cda_bottom(content)
-    print("  [合成] 已清除旧 CDA 底部")
+    # 1. 去除已有的推广底部
+    content = _strip_promo_footer(content)
+    print("  [合成] 已清除旧推广底部")
 
     # 2. 去除已有的正文图片引用（防重复插入）
     content = _re.sub(r'^\s*@[123]\.\.?png\s*$', '', content, flags=_re.MULTILINE)
-    content = _re.sub(r'^\s*@cda-random\s*$', '', content, flags=_re.MULTILINE)
+    content = _re.sub(r'^\s*' + _re.escape(RANDOM_IMG_TAG) + r'\s*$', '', content, flags=_re.MULTILINE)
     content = _re.sub(r'\n{3,}', '\n\n', content)
     print("  [合成] 已清除旧正文图片引用")
 
@@ -364,16 +378,16 @@ def cmd_compose():
     content = _insert_body_images(content)
     print("  [合成] 已插入 @1.png / @2.png / @3..png")
 
-    # 4. 插入文末随机图（@cda-random 随机选 4/6/7.jpg），不算尾缀
-    content += '\n\n@cda-random\n'
-    print("  [合成] 已插入文末随机图 @cda-random")
+    # 4. 插入文末随机图（从候选池随机选），不算尾缀
+    content += '\n\n' + RANDOM_IMG_TAG + '\n'
+    print(f"  [合成] 已插入文末随机图 {RANDOM_IMG_TAG}")
 
-    # 5. 追加 CDA 底部（除非指定 --no-footer）
+    # 5. 追加推广底部（除非指定 --no-footer）
     if no_footer:
-        print("  [合成] --no-footer 模式，跳过 CDA 底部")
+        print("  [合成] --no-footer 模式，跳过推广底部")
     else:
-        content += _cda_bottom_block()
-        print("  [合成] 已追加 CDA 底部（文字 + @8.jpg）")
+        content += _promo_footer_block()
+        print("  [合成] 已追加推广底部（文字 + 二维码图）")
 
     out_path.write_text(content, encoding='utf-8')
     print(f"\n[OK] 合成完成：{out_path}")
@@ -381,12 +395,12 @@ def cmd_compose():
 
 def cmd_add_footer():
     """
-    给已 compose 过的文件追加 CDA 底部区域（用于同步后补回尾缀）
+    给已 compose 过的文件追加推广底部区域（用于同步后补回尾缀）
     用法：python wechat_publisher.py add-footer <composed_nofooter.md> [output.md]
 
     处理流程：
-      1. 清除已有的 CDA 底部（防重复）
-      2. 追加 CDA 底部：@cda-random → 文字 → @8.jpg
+      1. 清除已有的推广底部（防重复）
+      2. 追加推广底部：随机配图 → 引导文字 → 二维码图
       3. 输出到指定文件（默认覆盖原文件，或输出到新文件）
     """
     if len(sys.argv) < 3:
@@ -403,14 +417,14 @@ def cmd_add_footer():
     content = in_path.read_text(encoding='utf-8')
     print(f"  [加尾缀] 读取：{in_path.name} → 输出：{out_path.name}")
 
-    # 1. 清除已有的 CDA 底部（防重复）
-    content = _strip_cda_bottom(content)
+    # 1. 清除已有的推广底部（防重复）
+    content = _strip_promo_footer(content)
 
-    # 2. 追加 CDA 底部
-    content += _cda_bottom_block()
+    # 2. 追加推广底部
+    content += _promo_footer_block()
 
     out_path.write_text(content, encoding='utf-8')
-    print(f"  [加尾缀] 已追加 CDA 底部（文字 + @8.jpg）")
+    print(f"  [加尾缀] 已追加推广底部（文字 + 二维码图）")
     print(f"\n[OK] 已加回尾缀：{out_path}")
 
 
@@ -601,19 +615,19 @@ def process_content_images(token, content):
     """
     扫描正文中的 @图片名 引用，自动上传并替换为 CDN URL
     支持：@1.png @2.png @3..png @配图7月/xxx.jpg
-    特殊标签：@cda-random → 从 4.png/6.png/7.jpg 随机选一张
+    特殊标签：随机配图标签（默认 @cda-random，配置区可改）→ 从候选池随机选一张
     """
     import re
 
-    # 处理特殊标签 @cda-random：从 CDA 图中随机选一张
-    if '@cda-random' in content:
-        cda_images = ['4.png', '6.png', '7.jpg']
-        chosen = random.choice(cda_images)
-        print(f"\n  [@cda-random] 随机选中：{chosen}")
+    # 处理随机配图标签：从候选池中随机选一张
+    if RANDOM_IMG_TAG in content:
+        pool = RANDOM_IMG_POOL
+        chosen = random.choice(pool)
+        print(f"\n  [{RANDOM_IMG_TAG}] 随机选中：{chosen}")
         cdn_url = resolve_image_ref(token, chosen)
         if cdn_url:
-            content = content.replace('@cda-random', cdn_url)
-            content = content.replace('![](@cda-random)', f'<img src="{cdn_url}" />')
+            content = content.replace(RANDOM_IMG_TAG, cdn_url)
+            content = content.replace(f'![]({RANDOM_IMG_TAG})', f'<img src="{cdn_url}" />')
 
     pattern = re.compile(r'@([\w.\\/:-]+\.(?:png|jpg|jpeg|gif|bmp))')
     matches = pattern.findall(content)
@@ -773,9 +787,9 @@ def cmd_help():
   status                  查看草稿箱
   published               获取已发布文章链接
   upload <图片路径>        上传图片到微信 CDN，返回 URL
-  compose <input.md>      自动合成：插入正文三图 + CDA 底部
-  compose --no-footer <input.md>  合成时不加 CDA 尾缀（供插件同步用）
-  add-footer <input.md>   给已合成的文件补回 CDA 尾缀
+  compose <input.md>      自动合成：插入正文配图 + 推广底部
+  compose --no-footer <input.md>  合成时不加推广尾缀（供插件同步用）
+  add-footer <input.md>   给已合成的文件补回推广尾缀
   prepare <input.md>      预处理 Markdown：上传 @图片 后输出 HTML
   draft <config.json>     根据配置创建草稿（自动替换 @图片）
   update-draft [media_id html1 html2]  更新已有草稿（补尾缀用）

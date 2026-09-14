@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-article-audit — 五平台文章安全审核引擎 — 严格遵循审核打分规则汇总.txt
+article-audit — 多平台文章审核引擎（关键词露出 / 风险词 / AI 痕迹 / 结构完整性）
 
 用法：
     cat article.md | python scripts/audit_article.py          # 从 stdin 读
@@ -13,9 +13,10 @@ article-audit — 五平台文章安全审核引擎 — 严格遵循审核打分
     < 90 = 改（需修复后重审）
     单模块扣分 ≥ 16 → HIGH RISK（建议人工查看）
 
-审核依据：五平台提示词工程/!!!!!!!!!!!!!!!审核打分规则汇总!!!!!!!!!!!!!!!.txt
+审核依据：文件顶部常量区的可配置规则（关键词、风险词、评分阈值）
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -42,9 +43,13 @@ AI_TRACE_WORDS = [
     "与此同时", "另一方面", "从某种意义上讲", "从长远来看",
 ]
 
+# ── 可配置：目标关键词（按需替换）──
+KEYWORD = os.environ.get("TARGET_KEYWORD", "CDA")
+KEYWORD_PATTERN = re.compile(re.escape(KEYWORD))
+
 # ── 标题危险词 ──
 TITLE_DANGER_WORDS = [
-    "CDA", "报考", "报名", "培训", "课程",
+    KEYWORD, "报考", "报名", "培训", "课程",
     "免费领取", "扫码领取", "官方授权", "保过",
     "培训班", "内部题库", "报名通道", "学习班",
 ]
@@ -93,8 +98,7 @@ CERT_ELEMENTS = {
     "就业": ["就业方向", "数据分析师", "商业智能", "产品运营", "岗位"],
 }
 
-# ── 正则 ──
-CDA_PATTERN = re.compile(r"CDA")
+# ── 正则（KEYWORD_PATTERN 见文件顶部配置区）──
 NUM_PREFIX = re.compile(r"^[一二三四五][、．\.\s]", re.MULTILINE)
 BULLET_PATTERN = re.compile(r"[•·]")
 TABLE_PATTERN = re.compile(r"\|.*\|.*\|")
@@ -147,17 +151,17 @@ def _check_cert_elements(text):
     return found
 
 
-def _find_cda_paragraphs(paragraphs):
-    """返回包含 CDA 的段落索引列表。"""
-    return [i for i, p in enumerate(paragraphs) if CDA_PATTERN.search(p)]
+def _find_kw_paragraphs(paragraphs):
+    """返回包含关键词的段落索引列表。"""
+    return [i for i, p in enumerate(paragraphs) if KEYWORD_PATTERN.search(p)]
 
 
-def _cda_content_ratio(paragraphs):
-    """CDA 内容占比（段落维度）。"""
+def _kw_content_ratio(paragraphs):
+    """关键词内容占比（段落维度）。"""
     if not paragraphs:
         return 0
-    cda_count = len(_find_cda_paragraphs(paragraphs))
-    return cda_count / len(paragraphs) * 100
+    kw_count = len(_find_kw_paragraphs(paragraphs))
+    return kw_count / len(paragraphs) * 100
 
 
 
@@ -274,34 +278,34 @@ def run_audit(text, filename="<stdin>"):
         _note("未检测到高风险营销词")
 
     # ================================================================
-    # M03 CDA露出检测
+    # M03 关键词露出检测
     # ================================================================
-    issues.append("【M03 CDA露出检测】")
+    issues.append(f"【M03 {KEYWORD}露出检测】")
 
-    cda_count = len(CDA_PATTERN.findall(body))
-    _note(f"CDA 全文出现次数：{cda_count}")
+    kw_count = len(KEYWORD_PATTERN.findall(body))
+    _note(f"{KEYWORD} 全文出现次数：{kw_count}")
 
     # 1. 次数检测（审核打分规则汇总.txt §4.1）
     #   ≥5 且 <10：正常不扣分  |  ≥10：-10  |  ≥12：REJECT
     #   3-4：-5               |  ≤2：-15
-    if cda_count >= 12:
-        _deduct("M03", 100, f"CDA 出现 {cda_count} 次（≥12）→ REJECT")
+    if kw_count >= 12:
+        _deduct("M03", 100, f"{KEYWORD} 出现 {kw_count} 次（≥12）→ REJECT")
         return "REJECT", 0, issues, module_scores
-    elif cda_count >= 10:
-        _deduct("M03", 10, f"CDA 出现 {cda_count} 次（≥10，偏多） -10")
-    elif 5 <= cda_count < 10:
-        _note(f"CDA 出现 {cda_count} 次（正常范围）")
-    elif 3 <= cda_count <= 4:
-        _deduct("M03", 5, f"CDA 仅出现 {cda_count} 次（偏低） -5")
-    elif cda_count <= 2:
-        _deduct("M03", 15, f"CDA 仅出现 {cda_count} 次（严重不足） -15")
+    elif kw_count >= 10:
+        _deduct("M03", 10, f"{KEYWORD} 出现 {kw_count} 次（≥10，偏多） -10")
+    elif 5 <= kw_count < 10:
+        _note(f"{KEYWORD} 出现 {kw_count} 次（正常范围）")
+    elif 3 <= kw_count <= 4:
+        _deduct("M03", 5, f"{KEYWORD} 仅出现 {kw_count} 次（偏低） -5")
+    elif kw_count <= 2:
+        _deduct("M03", 15, f"{KEYWORD} 仅出现 {kw_count} 次（严重不足） -15")
 
     # 2. 位置检测
-    cda_para_indices = _find_cda_paragraphs(paragraphs)
+    kw_para_indices = _find_kw_paragraphs(paragraphs)
 
     # 第一段（汇总表 §4.2：-20）
-    if paragraphs and CDA_PATTERN.search(paragraphs[0]):
-        _deduct("M03", 20, "CDA 出现在第一段 -20")
+    if paragraphs and KEYWORD_PATTERN.search(paragraphs[0]):
+        _deduct("M03", 20, f"{KEYWORD} 出现在第一段 -20")
 
     # 总结段（汇总表 §4.2：-20，排除尾缀）
     if paragraphs:
@@ -310,35 +314,35 @@ def run_audit(text, filename="<stdin>"):
         if "扫码" in last_para and "小程序" in last_para and last_idx > 0:
             last_para = paragraphs[last_idx - 1]
             last_idx = last_idx - 1
-        if CDA_PATTERN.search(last_para):
-            _deduct("M03", 20, "CDA 出现在总结段 -20")
+        if KEYWORD_PATTERN.search(last_para):
+            _deduct("M03", 20, f"{KEYWORD} 出现在总结段 -20")
 
     # 前四段未出现
-    first_four_has_cda = any(i < 4 for i in cda_para_indices)
-    if cda_count > 0 and not first_four_has_cda:
-        _deduct("M03", 7, "前四段均未出现CDA（运营方审核风险） -7")
+    first_four_has_kw = any(i < 4 for i in kw_para_indices)
+    if kw_count > 0 and not first_four_has_kw:
+        _deduct("M03", 7, f"前四段均未出现{KEYWORD}（内容审核风险） -7")
 
     # 首次出现位置
-    if cda_para_indices:
-        first_cda_idx = cda_para_indices[0]
-        if first_cda_idx == 1:
-            _note(f"CDA 在第{first_cda_idx + 1}段首次出现（建议第3-5段）")
-        elif 2 <= first_cda_idx <= 4:
-            _note(f"CDA 在第{first_cda_idx + 1}段首次出现（✅ 甜区位置）")
-    elif cda_count == 0:
-        _note("未检测到 CDA 出现")
+    if kw_para_indices:
+        first_kw_idx = kw_para_indices[0]
+        if first_kw_idx == 1:
+            _note(f"{KEYWORD} 在第{first_kw_idx + 1}段首次出现（建议第3-5段）")
+        elif 2 <= first_kw_idx <= 4:
+            _note(f"{KEYWORD} 在第{first_kw_idx + 1}段首次出现（✅ 甜区位置）")
+    elif kw_count == 0:
+        _note(f"未检测到 {KEYWORD} 出现")
 
     # 3. 重复话术检测（汇总表 §4.3：每重复组 -10）
-    cda_paras = [paragraphs[i] for i in cda_para_indices]
-    unique_cda = set(cda_paras)
-    if len(cda_paras) > 2 and len(unique_cda) < len(cda_paras):
-        dup = len(cda_paras) - len(unique_cda)
-        _deduct("M03", 10, f"CDA 话术重复 {dup} 组 -10")
+    kw_paras = [paragraphs[i] for i in kw_para_indices]
+    unique_kw = set(kw_paras)
+    if len(kw_paras) > 2 and len(unique_kw) < len(kw_paras):
+        dup = len(kw_paras) - len(unique_kw)
+        _deduct("M03", 10, f"{KEYWORD} 话术重复 {dup} 组 -10")
 
     # 4. 尾缀检测（汇总表 §十：未检测到→警告，不扣分）
-    has_footer = any("扫码" in p and "CDA" in p for p in paragraphs)
+    has_footer = any("扫码" in p and KEYWORD in p for p in paragraphs)
     if not has_footer:
-        _note("⚠️ 尾缀「扫码CDA认证小程序」缺失（建议补充）")
+        _note(f"⚠️ 尾缀「扫码{KEYWORD}认证小程序」缺失（建议补充）")
     else:
         _note("尾缀已存在")
 
@@ -415,7 +419,7 @@ def run_audit(text, filename="<stdin>"):
         _note("结构模块完整（覆盖全部8个模块）")
 
     # 3. 证书背书完整性检查（汇总表 §4.5/4.6）
-    # 检查证书规划模块或全文是否覆盖CDA五大背书要素
+    # 检查证书规划模块或全文是否覆盖关键词五大背书要素
     cert_range = _find_cert_module(paragraphs)
     cert_text = body  # 如果没有独立证书模块，检查全文
     if cert_range:
@@ -426,15 +430,15 @@ def run_audit(text, filename="<stdin>"):
     elem_count = len(elements_found)
 
     if elem_count <= 1:
-        _deduct("M05", 30, f"CDA背书要素仅覆盖 {elem_count}/5（严重不足） -30")
+        _deduct("M05", 30, f"{KEYWORD}背书要素仅覆盖 {elem_count}/5（严重不足） -30")
     elif elem_count == 2:
-        _deduct("M05", 20, f"CDA背书要素仅覆盖 {elem_count}/5（不足） -20")
+        _deduct("M05", 20, f"{KEYWORD}背书要素仅覆盖 {elem_count}/5（不足） -20")
     elif elem_count == 3:
-        _note(f"⚠️ CDA背书要素覆盖 {elem_count}/5（不足，建议补充到≥4）")
+        _note(f"⚠️ {KEYWORD}背书要素覆盖 {elem_count}/5（不足，建议补充到≥4）")
     elif elem_count >= 4:
-        _note(f"CDA背书要素覆盖 {elem_count}/5 ✅")
+        _note(f"{KEYWORD}背书要素覆盖 {elem_count}/5 ✅")
     else:
-        _note(f"CDA背书要素覆盖 {elem_count}/5")
+        _note(f"{KEYWORD}背书要素覆盖 {elem_count}/5")
 
     # ================================================================
     # 汇总判定
@@ -442,10 +446,10 @@ def run_audit(text, filename="<stdin>"):
 
     # CSDN 专属提醒
     csdn_notes = []
-    if CDA_PATTERN.search(title):
-        csdn_notes.append("CSDN: 标题含CDA，将被拒稿")
-    if cda_count <= 2:
-        csdn_notes.append("CSDN: 前三段CDA注意自然融入")
+    if KEYWORD_PATTERN.search(title):
+        csdn_notes.append(f"CSDN: 标题含{KEYWORD}，将被拒稿")
+    if kw_count <= 2:
+        csdn_notes.append(f"CSDN: 前三段{KEYWORD}注意自然融入")
     if csdn_notes:
         issues.append("【🔶 CSDN 专属提醒】")
         for note in csdn_notes:

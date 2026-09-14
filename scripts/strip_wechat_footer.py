@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-strip_wechat_footer — 去除公众号专属的 CDA 扫码尾缀，生成适合其他平台的纯净版。
+strip_wechat_footer — 去除公众号专属的推广尾缀，生成适合其他平台分发的纯净版。
 
-输入：{标题}_raw.md（包含 CDA 扫码尾缀文字）
-输出：{标题}_clean.md（不含 CDA 扫码尾缀，适合头条/百家/知乎/CSDN 发布）
+输入：{标题}_raw.md（包含推广尾缀文字）
+输出：{标题}_clean.md（不含推广尾缀，适合其他平台发布）
 
 用法：
     python scripts/strip_wechat_footer.py outputs/{标题}_raw.md
@@ -11,7 +11,7 @@ strip_wechat_footer — 去除公众号专属的 CDA 扫码尾缀，生成适合
     python scripts/strip_wechat_footer.py outputs/*_raw.md          # 批量处理
 
 处理规则：
-    1. 移除 "> 【扫码\"CDA认证\"小程序】..." 整行
+    1. 移除 "> 【扫码\"CDA认证\"小程序】..." 整行（示例样式）
     2. 移除 "@cda-random" 引用行
     3. 移除 "@8.jpg" 引用行
     4. 移除 "扫码了解CDA数据分析师认证..." 行
@@ -25,7 +25,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = BASE_DIR / "outputs"
 
-# 需要移除的 CDA 尾缀相关正则
+# 需要移除的推广尾缀样式（按需替换）
 CLEANUP_PATTERNS = [
     # 扫码文字变体
     re.compile(r'^\s*>?\s*【扫码"CDA认证"小程序】[^\n]*\n?', re.MULTILINE),
@@ -50,7 +50,7 @@ AI_DISCLAIMER = (
 
 
 def strip_wechat_footer(text: str) -> str:
-    """从文章正文中去掉公众号专属的 CDA 扫码尾缀。"""
+    """从文章正文中去掉公众号专属的推广尾缀。"""
     for pattern in CLEANUP_PATTERNS:
         text = pattern.sub('', text)
 

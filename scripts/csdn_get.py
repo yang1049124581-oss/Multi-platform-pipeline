@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 CSDN Get — CSDN 账号文章全量采集 + 全文提取技能
+（提取的 keyword_context 字段为目标关键词在文中的上下文，关键词示例值为 CDA，可按需替换 JS 中的字面量）
 
 用法:
   python3 csdn_get.py links    <账号ID>          扒取全部文章链接
@@ -192,8 +193,8 @@ async def extract_articles(link_list, output_dir, label=""):
         if not url or "csdn.net" not in url:
             results.append({
                 "url": url, "title": "", "date": "", "full_text": "",
-                "first_para": "", "headings": [], "cda_context": "",
-                "cda_position_pct": -1, "word_count_est": 0, "_error": "非CSDN链接",
+                "first_para": "", "headings": [], "keyword_context": "",
+                "keyword_position_pct": -1, "word_count_est": 0, "_error": "非CSDN链接",
             })
             continue
 
@@ -231,14 +232,14 @@ async def extract_articles(link_list, output_dir, label=""):
                 if (headingMatches) headings = headingMatches.map(function(h){return h.trim();});
                 r.headings = headings;
 
-                var cdaIdx = fullText.indexOf('CDA');
-                if (cdaIdx >= 0) {
-                    var before = fullText.substring(Math.max(0,cdaIdx-80), cdaIdx);
-                    var after = fullText.substring(cdaIdx, Math.min(fullText.length,cdaIdx+120));
-                    r.cda_context = (before + '【HERE】' + after).replace(/\s+/g, ' ').trim();
-                    r.cda_position_pct = Math.round((cdaIdx / fullText.length) * 100);
+                var kwIdx = fullText.indexOf('CDA');
+                if (kwIdx >= 0) {
+                    var before = fullText.substring(Math.max(0,kwIdx-80), kwIdx);
+                    var after = fullText.substring(kwIdx, Math.min(fullText.length,kwIdx+120));
+                    r.keyword_context = (before + '【HERE】' + after).replace(/\s+/g, ' ').trim();
+                    r.keyword_position_pct = Math.round((kwIdx / fullText.length) * 100);
                 } else {
-                    r.cda_context = ''; r.cda_position_pct = -1;
+                    r.keyword_context = ''; r.keyword_position_pct = -1;
                 }
                 var cn = (fullText.match(/[\u4e00-\u9fff]/g) || []).length;
                 var en = (fullText.match(/[a-zA-Z]+/g) || []).length;
@@ -260,8 +261,8 @@ async def extract_articles(link_list, output_dir, label=""):
                 "full_text": info.get("full_text", ""),
                 "first_para": info.get("first_para", ""),
                 "headings": info.get("headings", []),
-                "cda_context": info.get("cda_context", ""),
-                "cda_position_pct": info.get("cda_position_pct", -1),
+                "keyword_context": info.get("keyword_context", ""),
+                "keyword_position_pct": info.get("keyword_position_pct", -1),
                 "word_count_est": info.get("word_count_est", 0),
             }
             if isinstance(item, dict):
@@ -276,7 +277,7 @@ async def extract_articles(link_list, output_dir, label=""):
             results.append({
                 "url": url.split("?")[0], "title": "", "date": "",
                 "full_text": "", "first_para": f"提取失败: {e}",
-                "headings": [], "cda_context": "", "cda_position_pct": -1,
+                "headings": [], "keyword_context": "", "keyword_position_pct": -1,
                 "word_count_est": 0, "_error": str(e),
             })
             if isinstance(item, dict):
