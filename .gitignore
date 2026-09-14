@@ -25,6 +25,10 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# AI Agent 运行时数据（保留 .reasonix/skills/）
+.reasonix/tasks/
+.reasonix/attachments/
+
 # 调试与临时文件
 debug_*
 *.log
