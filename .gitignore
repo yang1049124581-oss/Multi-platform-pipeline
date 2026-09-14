@@ -1,0 +1,30 @@
+# 凭据与本地配置
+.env
+*.local.toml
+
+# 运行产物（文章、草稿、链接汇总）
+outputs/
+state/
+
+# 图片素材（封面、配图、二维码等）
+配图*/
+images/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 调试与临时文件
+debug_*
+*.log
